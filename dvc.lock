@@ -1,0 +1,60 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python src/data/prepare.py
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 1236629e16d751ea84b5dba8aed3c8f1.dir
+      size: 14929458
+      nfiles: 16
+    - path: src/data/prepare.py
+      hash: md5
+      md5: c1c63257f01e94a381f817481976b144
+      size: 1557
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: 2c6841444f2f896bc844674f222ba637.dir
+      size: 1208122
+      nfiles: 3
+  train:
+    cmd: python src/train/train.py
+    deps:
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 99dc2a1806a93198c392ef7337971202
+      size: 807400
+    - path: data/processed/validation.csv
+      hash: md5
+      md5: 2893affb92df80c212b867e34f5fa564
+      size: 161167
+    - path: src/train/train.py
+      hash: md5
+      md5: 73050470b8c09cf0389267e4584163da
+      size: 2127
+    outs:
+    - path: models/intent_classifier.joblib
+      hash: md5
+      md5: 083325ac29facbe31c17c62896687af6
+      size: 38244252
+  evaluate:
+    cmd: python src/evaluate/evaluate.py
+    deps:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 873587b08da0ef03aee0eb2dcaa6cc1f
+      size: 239555
+    - path: models/intent_classifier.joblib
+      hash: md5
+      md5: 083325ac29facbe31c17c62896687af6
+      size: 38244252
+    - path: src/evaluate/evaluate.py
+      hash: md5
+      md5: 089855c006a89970203d487a6e3688ca
+      size: 2113
+    outs:
+    - path: models/metrics.json
+      hash: md5
+      md5: 7a4f2793cbb37428e7814c3478588ecf
+      size: 122

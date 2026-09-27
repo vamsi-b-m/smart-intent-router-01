@@ -1,0 +1,26 @@
+stages:
+  prepare:
+    cmd: python src/data/prepare.py
+    deps:
+      - src/data/prepare.py
+      - data/raw
+    outs:
+      - data/processed
+
+  train:
+    cmd: python src/train/train.py
+    deps:
+      - src/train/train.py
+      - data/processed/train.csv
+      - data/processed/validation.csv
+    outs:
+      - models/intent_classifier.joblib
+    
+  evaluate:
+    cmd: python src/evaluate/evaluate.py
+    deps:
+      - src/evaluate/evaluate.py
+      - models/intent_classifier.joblib
+      - data/processed/test.csv
+    outs:
+      - models/metrics.json

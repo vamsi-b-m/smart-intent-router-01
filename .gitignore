@@ -16,3 +16,7 @@ mlruns/
 
 data/raw/
 data/processed/
+
+# DVC-managed model artifacts
+models/intent_classifier.joblib
+models/metrics.json
