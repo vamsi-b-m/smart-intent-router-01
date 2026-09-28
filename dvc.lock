@@ -31,13 +31,17 @@ stages:
       size: 161167
     - path: src/train/train.py
       hash: md5
-      md5: 73050470b8c09cf0389267e4584163da
-      size: 2127
+      md5: 47a472fa7adf13858497377b336f5a60
+      size: 3243
     outs:
     - path: models/intent_classifier.joblib
       hash: md5
-      md5: 083325ac29facbe31c17c62896687af6
+      md5: 47683c017987e542bd2c8053733a14d2
       size: 38244252
+    - path: models/mlflow_run_id.txt
+      hash: md5
+      md5: d59e5faaf993ac9f70bc6354ea0ddd24
+      size: 32
   evaluate:
     cmd: python src/evaluate/evaluate.py
     deps:
@@ -47,7 +51,7 @@ stages:
       size: 239555
     - path: models/intent_classifier.joblib
       hash: md5
-      md5: 083325ac29facbe31c17c62896687af6
+      md5: 47683c017987e542bd2c8053733a14d2
       size: 38244252
     - path: src/evaluate/evaluate.py
       hash: md5
@@ -58,3 +62,23 @@ stages:
       hash: md5
       md5: 7a4f2793cbb37428e7814c3478588ecf
       size: 122
+  register:
+    cmd: python src/register/register.py
+    deps:
+    - path: models/metrics.json
+      hash: md5
+      md5: 7a4f2793cbb37428e7814c3478588ecf
+      size: 122
+    - path: models/mlflow_run_id.txt
+      hash: md5
+      md5: d59e5faaf993ac9f70bc6354ea0ddd24
+      size: 32
+    - path: src/register/register.py
+      hash: md5
+      md5: bfc22041c781c50440ddc730712fe71e
+      size: 3431
+    outs:
+    - path: models/registered_model_version.txt
+      hash: md5
+      md5: eccbc87e4b5ce2fe28308fd9f2a7baf3
+      size: 1

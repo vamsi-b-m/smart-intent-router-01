@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: smart-intent-router-mlflow-postgres
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
+    volumes:
+      - mlflow-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smart-intent-router-mlflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
+      AWS_DEFAULT_REGION: ap-south-1
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - postgresql://mlflow:mlflow@postgres:5432/mlflow
+      - --artifacts-destination
+      - s3://smart-intent-router-mlflow-20260928-01/mlflow
+      - --serve-artifacts
+    volumes:
+      - ${HOME}/.mlflow-aws/credentials:/root/.aws/credentials:ro
+    ports:
+      - "5001:5000"
+  
+volumes:
+  mlflow-postgres-data:

@@ -20,3 +20,5 @@ data/processed/
 # DVC-managed model artifacts
 models/intent_classifier.joblib
 models/metrics.json
+
+mlflow.db

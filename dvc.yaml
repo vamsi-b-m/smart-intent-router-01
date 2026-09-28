@@ -15,6 +15,7 @@ stages:
       - data/processed/validation.csv
     outs:
       - models/intent_classifier.joblib
+      - models/mlflow_run_id.txt
     
   evaluate:
     cmd: python src/evaluate/evaluate.py
@@ -24,3 +25,12 @@ stages:
       - data/processed/test.csv
     outs:
       - models/metrics.json
+
+  register:
+    cmd: python src/register/register.py
+    deps:
+      - src/register/register.py
+      - models/mlflow_run_id.txt
+      - models/metrics.json
+    outs:
+      - models/registered_model_version.txt
