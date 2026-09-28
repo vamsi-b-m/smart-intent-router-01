@@ -1,12 +1,23 @@
 import os
-from pathlib import Path
 
+MODEL_PATH = os.getenv(
+    "MODEL_PATH",
+    "models/intent_classifier.joblib",
+)
 
-MODEL_PATH = Path(
-    os.getenv(
-        "MODEL_PATH",
-        "models/intent_classifier.joblib",
-    )
+MODEL_NAME = os.getenv(
+    "MODEL_NAME",
+    "smart-intent-router",
+)
+
+MODEL_ALIAS = os.getenv(
+    "MODEL_ALIAS",
+    "champion",
+)
+
+MLFLOW_TRACKING_URI = os.getenv(
+    "MLFLOW_TRACKING_URI",
+    "http://localhost:5001",
 )
 
 APP_NAME = os.getenv(
@@ -19,14 +30,9 @@ APP_VERSION = os.getenv(
     "1.0.0",
 )
 
-MODEL_NAME = os.getenv(
-    "MODEL_NAME",
-    "intent-classifier",
-)
-
 MODEL_VERSION = os.getenv(
     "MODEL_VERSION",
-    "1.0.0",
+    "registry",
 )
 
 ENVIRONMENT = os.getenv(

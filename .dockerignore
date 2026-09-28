@@ -1,10 +1,10 @@
 .venv/
-__pychache__/
+__pycache__/
 *.pyc
 .git/
-.gitignore
-
+.github/
 data/raw/
-data/processed
-
+data/processed/
+models/
 tests/
+mlflow.db

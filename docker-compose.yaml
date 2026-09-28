@@ -1,32 +1,45 @@
 services:
+
   postgres:
     image: postgres:16
     container_name: smart-intent-router-mlflow-postgres
+
     environment:
       POSTGRES_USER: mlflow
       POSTGRES_PASSWORD: mlflow
       POSTGRES_DB: mlflow
+
     volumes:
       - mlflow-postgres-data:/var/lib/postgresql/data
+
     ports:
       - "5432:5432"
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+    networks:
+      - smart-intent-router
+
+
   mlflow:
     build:
-      context: .
+      context: ./mlflow
       dockerfile: Dockerfile
+
     container_name: smart-intent-router-mlflow
+
     depends_on:
       postgres:
         condition: service_healthy
+
     environment:
       AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
       AWS_DEFAULT_REGION: ap-south-1
+
     command:
       - mlflow
       - server
@@ -40,11 +53,59 @@ services:
       - s3://smart-intent-router-mlflow-20260928-01/mlflow
       - --serve-artifacts
       - --allowed-hosts
-      - "smart-intent-router-mlflow:5000,localhost:5001,localhost,127.0.0.1"
+      - "mlflow:5000,smart-intent-router-mlflow:5000,localhost:5001,localhost,127.0.0.1"
+
     volumes:
       - ${HOME}/.mlflow-aws/credentials:/root/.aws/credentials:ro
+
     ports:
       - "5001:5000"
-  
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\""
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - smart-intent-router
+
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: smart-intent-router-api
+
+    depends_on:
+      mlflow:
+        condition: service_healthy
+
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_NAME: smart-intent-router
+      MODEL_ALIAS: champion
+      APP_NAME: smart-intent-router
+      APP_VERSION: 1.0.0
+      ENVIRONMENT: docker
+
+    ports:
+      - "8000:8000"
+
+    networks:
+      - smart-intent-router
+
+
+networks:
+  smart-intent-router:
+    name: smart-intent-router
+
 volumes:
   mlflow-postgres-data:
+    external: true
+    name: mlflow_mlflow-postgres-data

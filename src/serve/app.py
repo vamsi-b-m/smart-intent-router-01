@@ -1,152 +1,146 @@
-from contextlib import asynccontextmanager
-from uuid import UUID, uuid4
+import os
+import uuid
 
-import joblib
-from fastapi import FastAPI, Header, HTTPException, Request, status
+import mlflow
+import mlflow.sklearn
+
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from src.config import (
-    APP_NAME,
-    APP_VERSION,
-    ENVIRONMENT,
-    MODEL_NAME,
-    MODEL_PATH,
-    MODEL_VERSION,
+
+APP_NAME = os.getenv(
+    "APP_NAME",
+    "smart-intent-router",
 )
+
+APP_VERSION = os.getenv(
+    "APP_VERSION",
+    "1.0.0",
+)
+
+ENVIRONMENT = os.getenv(
+    "ENVIRONMENT",
+    "local",
+)
+
+MODEL_NAME = os.getenv(
+    "MODEL_NAME",
+    "smart-intent-router",
+)
+
+MODEL_ALIAS = os.getenv(
+    "MODEL_ALIAS",
+    "champion",
+)
+
+MLFLOW_TRACKING_URI = os.getenv(
+    "MLFLOW_TRACKING_URI",
+    "http://localhost:5001",
+)
+
+
+app = FastAPI(
+    title=APP_NAME,
+    version=APP_VERSION,
+)
+
+
+model = None
+model_uri = None
 
 
 class PredictionRequest(BaseModel):
     text: str = Field(
         ...,
         min_length=1,
-        max_length=5000,
         description="Text to classify",
     )
 
 
 class PredictionResponse(BaseModel):
-    request_id: UUID
     intent: str
     confidence: float
     model_name: str
-    model_version: str
+    model_alias: str
+    model_uri: str
+    request_id: str
 
 
-class HealthResponse(BaseModel):
-    status: str
-
-
-class ReadinessResponse(BaseModel):
-    status: str
-    model_loaded: bool
-
-
-class VersionResponse(BaseModel):
-    app_name: str
-    app_version: str
-    model_name: str
-    model_version: str
-    environment: str
-
-
+@app.on_event("startup")
 def load_model():
-    """Load the trained model artifact."""
-    return joblib.load(MODEL_PATH)
+    global model
+    global model_uri
 
+    print("Starting model initialization...")
+    print(f"MLflow tracking URI: {MLFLOW_TRACKING_URI}")
+    print(f"Model name: {MODEL_NAME}")
+    print(f"Model alias: {MODEL_ALIAS}")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    Application startup/shutdown lifecycle.
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
-    The model is loaded once during startup rather than
-    loading it for every prediction request.
-    """
+    model_uri = f"models:/{MODEL_NAME}@{MODEL_ALIAS}"
 
-    print(f"Loading model from: {MODEL_PATH}")
+    print(f"Loading model from: {model_uri}")
 
     try:
-        app.state.model = load_model()
-        app.state.model_loaded = True
+        model = mlflow.sklearn.load_model(model_uri)
 
         print("Model loaded successfully.")
 
     except Exception as exc:
-        app.state.model = None
-        app.state.model_loaded = False
-
-        print(f"Model loading failed: {exc}")
-
-    yield
-
-    # Cleanup during shutdown
-    app.state.model = None
-    app.state.model_loaded = False
+        print(f"Failed to load model: {exc}")
+        raise
 
 
-app = FastAPI(
-    title=APP_NAME,
-    version=APP_VERSION,
-    description="Production-oriented ML inference service",
-    lifespan=lifespan,
-)
+@app.middleware("http")
+async def add_request_id(
+    request: Request,
+    call_next,
+):
+    request_id = str(uuid.uuid4())
+
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+
+    response.headers["X-Request-ID"] = request_id
+
+    return response
 
 
-@app.get(
-    "/health",
-    response_model=HealthResponse,
-)
+@app.get("/health")
 def health():
-    """
-    Liveness endpoint.
-
-    This tells Kubernetes/load balancers that the
-    application process itself is running.
-    """
-
-    return HealthResponse(
-        status="healthy",
-    )
+    return {
+        "status": "healthy",
+    }
 
 
-@app.get(
-    "/ready",
-    response_model=ReadinessResponse,
-)
-def ready(request: Request):
-    """
-    Readiness endpoint.
-
-    The service is ready only when the ML model
-    has been successfully loaded.
-    """
-
-    if not request.app.state.model_loaded:
+@app.get("/ready")
+def readiness():
+    if model is None:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=503,
             detail="Model is not loaded",
         )
 
-    return ReadinessResponse(
-        status="ready",
-        model_loaded=True,
-    )
+    return {
+        "status": "ready",
+        "model": MODEL_NAME,
+        "alias": MODEL_ALIAS,
+    }
 
 
-@app.get(
-    "/version",
-    response_model=VersionResponse,
-)
+@app.get("/version")
 def version():
-    """Return application and model version information."""
-
-    return VersionResponse(
-        app_name=APP_NAME,
-        app_version=APP_VERSION,
-        model_name=MODEL_NAME,
-        model_version=MODEL_VERSION,
-        environment=ENVIRONMENT,
-    )
+    return {
+        "application": APP_NAME,
+        "application_version": APP_VERSION,
+        "environment": ENVIRONMENT,
+        "model_name": MODEL_NAME,
+        "model_alias": MODEL_ALIAS,
+        "model_uri": model_uri,
+        "mlflow_tracking_uri": MLFLOW_TRACKING_URI,
+    }
 
 
 @app.post(
@@ -154,53 +148,49 @@ def version():
     response_model=PredictionResponse,
 )
 def predict(
-    payload: PredictionRequest,
-    request: Request,
-    x_request_id: str | None = Header(default=None),
+    request: PredictionRequest,
+    http_request: Request,
 ):
-    """
-    Run inference against the loaded model.
-    """
-
-    if not request.app.state.model_loaded:
+    if model is None:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Model is not ready",
+            status_code=503,
+            detail="Model is not loaded",
         )
 
-    request_id = (
-        x_request_id
-        if x_request_id
-        else str(uuid4())
-    )
-
-    model = request.app.state.model
+    request_id = http_request.state.request_id
 
     try:
-        prediction = model.predict([payload.text])[0]
+        prediction = model.predict([request.text])[0]
 
-        probabilities = model.predict_proba(
-            [payload.text]
-        )[0]
+        confidence = None
 
-        confidence = float(probabilities.max())
+        if hasattr(model, "predict_proba"):
+            probabilities = model.predict_proba(
+                [request.text]
+            )[0]
+
+            confidence = float(max(probabilities))
+
+        if confidence is None:
+            confidence = 0.0
+
+        return PredictionResponse(
+            intent=str(prediction),
+            confidence=confidence,
+            model_name=MODEL_NAME,
+            model_alias=MODEL_ALIAS,
+            model_uri=model_uri,
+            request_id=request_id,
+        )
 
     except Exception as exc:
         print(
-            f"Inference failed. "
+            f"Prediction failed. "
             f"request_id={request_id}, "
             f"error={exc}"
         )
 
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Inference failed",
-        ) from exc
-
-    return PredictionResponse(
-        request_id=request_id,
-        intent=str(prediction),
-        confidence=confidence,
-        model_name=MODEL_NAME,
-        model_version=MODEL_VERSION,
-    )
+            status_code=500,
+            detail="Prediction failed",
+        )

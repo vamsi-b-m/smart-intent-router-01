@@ -22,6 +22,7 @@ REGISTERED_VERSION_PATH = Path("models/registered_model_version.txt")
 
 MIN_MACRO_F1 = 0.85
 
+CANDIDATE_ALIAS = "candidate"
 
 def check_quality_gate():
     """Check whether the model passed the required quality threshold."""
@@ -120,6 +121,17 @@ def register_model(run_id):
 
     version = registered_model.version
 
+    client.set_registered_model_alias(
+        MODEL_NAME,
+        CANDIDATE_ALIAS,
+        version
+    )
+
+    print(
+        f"Model version {version} assigned to alias "
+        f"'{CANDIDATE_ALIAS}'"
+    )
+    
     REGISTERED_VERSION_PATH.parent.mkdir(
         parents=True,
         exist_ok=True,
