@@ -22,3 +22,5 @@ models/intent_classifier.joblib
 models/metrics.json
 
 mlflow.db
+
+*.egg-info/
