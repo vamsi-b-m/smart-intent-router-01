@@ -1,3 +1,4 @@
+pytest
 aiobotocore==3.9.1
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
