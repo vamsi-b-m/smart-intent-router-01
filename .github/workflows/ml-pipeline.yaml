@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
       
       - name: Install dependencies
-        runs: |
+        run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e .
@@ -36,15 +36,15 @@ jobs:
           aws-region: ap-aouth-1
       
       - name: Verify AWS identity
-        runs: |
+        run: |
           aws sts get-caller-identity
 
       - name: Pull DVC data
-        runs: |
+        run: |
           dvc pull
 
       - name: Run DVC pipeline
         env:
           MLFLOW_TRACKING_URL: http://127.0.0.1:5001
-        runs: |
+        run: |
           dvc repro evaluate
