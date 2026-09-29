@@ -44,8 +44,34 @@ jobs:
         run: |
           dvc pull
 
-      - name: Run DVC pipeline
+      - name: Start temporary MLflow server
+        run: |
+          nohup mlflow server \
+            --host 127.0.0.1 \
+            --port 5001
+            --backend-store-uri sqlite:///mlflow-ci.db \
+            --artifacts-destination ./mlflow-ci-artifacts \
+            --allowed-hosts "127.0.0.1:5001, localhost:5001" \
+            > mlflow-server.log 2>&1 &
+
+      - name: Wait for MLflow
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://127.0.0.1:5001/ > /dev/null; then
+              echo "MLflow is ready"
+              exit 0
+            fi
+
+            echo "Waiting for MLflow"
+            sleep 2
+          done
+
+          echo "MLflow failed to start"
+          cat mlflow-server.log
+          exit 1
+
+      - name: Run ML pipeline
         env:
           MLFLOW_TRACKING_URL: http://127.0.0.1:5001
         run: |
-          dvc repro evaluate
+          dvc repro --dorce train evaluate
