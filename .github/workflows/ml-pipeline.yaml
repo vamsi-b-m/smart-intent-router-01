@@ -34,6 +34,8 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ap-aouth-1
+          audience: sts.amazonaws.com
+          sts-endpoint: https://sts.amazonaws.com
       
       - name: Verify AWS identity
         run: |
