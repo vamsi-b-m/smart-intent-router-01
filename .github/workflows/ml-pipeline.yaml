@@ -48,11 +48,14 @@ jobs:
         run: |
           nohup mlflow server \
             --host 127.0.0.1 \
-            --port 5001
+            --port 5001 \
+            --workers 1
             --backend-store-uri sqlite:///mlflow-ci.db \
             --artifacts-destination ./mlflow-ci-artifacts \
             --allowed-hosts "127.0.0.1:5001, localhost:5001" \
-            > mlflow-server.log 2>&1 &
+            </dev/null > mlflow-server.log 2>&1 &
+          echo $! > mlflow-server.pid
+          echo "MLflow server started with PID $(cat mlflow-server.pid)"
 
       - name: Wait for MLflow
         run: |
@@ -62,7 +65,7 @@ jobs:
               exit 0
             fi
 
-            echo "Waiting for MLflow"
+            echo "Waiting for MLflow..."
             sleep 2
           done
 
